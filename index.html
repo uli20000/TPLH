@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TPLH 2.0</title>
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 使用 Inter 字體作為主要字體，並提供中文備用字體 */
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #fcfcfc; /* 接近純白的背景 */
+            color: #333; /* 深灰文本 */
+        }
+        /* 主卡片使用極簡陰影 */
+        .shadow-minimal {
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+            border: 1px solid #eee; /* 極細邊框 */
+        }
+        /* 計算按鈕的極簡風格 */
+        .btn-calculate {
+            background-color: #333;
+            color: #fff;
+            transition: background-color 0.2s, transform 0.2s;
+        }
+        .btn-calculate:hover {
+            background-color: #555;
+            transform: translateY(-1px);
+        }
+        .btn-calculate:focus {
+             outline: 2px solid #ccc;
+             outline-offset: 2px;
+        }
+        /* 輸入框的極簡焦點樣式 */
+        .input-minimal:focus {
+            border-color: #555;
+            box-shadow: 0 0 0 1px #555;
+            outline: none;
+        }
+        /* 額度充足：使用深沉的綠色作為點綴 */
+        .result-box-surplus {
+            background-color: #f7fff7; /* 淺綠背景 */
+            border-color: #059669; /* 深綠邊框 */
+            color: #059669; /* 深綠文本 */
+        }
+        /* 額度不足：使用深沉的琥珀色作為點綴 */
+        .result-box-deficit {
+            background-color: #fffbf7; /* 淺黃背景 */
+            border-color: #c2410c; /* 深橘邊框 */
+            color: #c2410c; /* 深橘文本 */
+        }
+    </style>
+</head>
+<!-- 縮小 body padding 以節省空間 -->
+<body class="p-3 flex items-center justify-center min-h-screen">
+
+    <!-- 縮小卡片 padding 和間距 -->
+    <div class="w-full max-w-lg bg-white rounded-xl shadow-minimal p-5 sm:p-8 space-y-6">
+
+        <!-- 標題區塊 -->
+        <header class="text-center border-b border-gray-200 pb-4">
+            <h1 class="text-3xl font-extrabold text-gray-800 tracking-wider">TPLH 2.0</h1>
+            <!-- 刪除多餘小字 -->
+        </header>
+
+        <!-- 輸入表單區塊 縮小間距 -->
+        <div class="space-y-4">
+            <!-- 累積工時輸入 (標籤文字置中) -->
+            <div>
+                <label for="totalHours" class="block text-sm font-medium text-gray-600 mb-2 text-center">
+                    累積總工時 (小時)
+                </label>
+                <input type="number" id="totalHours" value="180" min="0" placeholder="輸入累積工時"
+                       class="input-minimal mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-lg font-mono text-center">
+            </div>
+
+            <!-- 累積單數輸入 (標籤文字置中) -->
+            <div>
+                <label for="totalOrders" class="block text-sm font-medium text-gray-600 mb-2 text-center">
+                    目前累積總單數
+                </label>
+                <input type="number" id="totalOrders" value="380" min="0" placeholder="輸入累積單數"
+                       class="input-minimal mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-lg font-mono text-center">
+            </div>
+
+            <!-- 計算按鈕 -->
+            <button onclick="calculateQuota()"
+                    class="btn-calculate w-full font-medium py-3 rounded-lg text-lg focus:outline-none">
+                計算額度
+            </button>
+        </div>
+
+        <!-- 結果展示區塊 縮小間距 -->
+        <div id="resultContainer" class="hidden pt-4 border-t border-gray-100 space-y-4">
+            
+            <!-- 應達單數 -->
+            <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 text-center">
+                <p class="text-sm font-light text-gray-500 mb-1">應達單數 (TPLH 2.0)</p>
+                <span id="targetOrders" class="text-3xl font-extrabold text-gray-800">--</span>
+                <span class="text-lg font-medium text-gray-700"> 單</span>
+            </div>
+
+            <!-- 第三方額度判斷 (重點區域) -->
+            <div id="quotaBox" class="p-5 rounded-xl border-2 text-center transition-all duration-300 shadow-md">
+                <h3 class="text-base font-semibold mb-2" id="quotaTitle"></h3>
+                <p class="text-4xl font-extrabold tracking-tight" id="quotaValue"></p>
+                <p class="text-xs mt-2 font-light" id="quotaMessage"></p>
+            </div>
+            
+             <!-- TPLH 實際值 (輔助資訊) -->
+            <div class="flex justify-between items-center text-xs pt-2 border-t border-dashed border-gray-200">
+                <span class="font-light text-gray-500">當前 TPLH 實際值：</span>
+                <span id="currentTplh" class="font-medium text-base text-gray-700">--</span>
+            </div>
+
+        </div>
+
+        <!-- 錯誤訊息區塊 (隱藏) -->
+        <div id="errorBox" class="hidden bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg relative transition-all duration-300 text-sm text-center" role="alert">
+            <strong class="font-semibold mr-1">錯誤提示：</strong>
+            <span class="block sm:inline" id="errorMessage"></span>
+        </div>
+
+    </div>
+
+    <script>
+        // 設定常數
+        const TPLH_THRESHOLD = 2.0;
+
+        /**
+         * 處理輸入、計算應達單數和第三方派送額度，並更新 UI 顯示。
+         */
+        function calculateQuota() {
+            const ordersInput = document.getElementById('totalOrders');
+            const hoursInput = document.getElementById('totalHours');
+            const orders = parseFloat(ordersInput.value);
+            const hours = parseFloat(hoursInput.value);
+
+            const resultContainer = document.getElementById('resultContainer');
+            const quotaBox = document.getElementById('quotaBox');
+            const targetOrdersElem = document.getElementById('targetOrders');
+            const quotaTitle = document.getElementById('quotaTitle');
+            const quotaValue = document.getElementById('quotaValue');
+            const quotaMessage = document.getElementById('quotaMessage');
+            const currentTplhElem = document.getElementById('currentTplh');
+            const errorBox = document.getElementById('errorBox');
+            const errorMessage = document.getElementById('errorMessage');
+
+            // 1. 輸入驗證與錯誤處理
+            errorBox.classList.add('hidden');
+            resultContainer.classList.add('hidden');
+
+            if (isNaN(orders) || isNaN(hours) || orders < 0 || hours < 0) {
+                errorMessage.textContent = '單數和工時必須是有效的、非負數值。';
+                errorBox.classList.remove('hidden');
+                return;
+            }
+
+            // 處理工時為零的情況
+            if (hours === 0) {
+                if (orders > 0) {
+                     errorMessage.textContent = '累積工時不能為零。請輸入實際工時。';
+                     errorBox.classList.remove('hidden');
+                     return;
+                }
+                
+                // 工時和單數都是零，計算為零
+                targetOrdersElem.textContent = 0;
+                currentTplhElem.textContent = '0.00';
+                
+                updateQuotaDisplay(0, quotaBox, quotaTitle, quotaValue, quotaMessage, orders, hours, 0);
+                resultContainer.classList.remove('hidden');
+                return;
+            }
+
+            // 2. 核心計算
+            // A. 計算達到 TPLH 2.0 應達到的單數 (Target Orders)
+            const targetOrders = Math.ceil(TPLH_THRESHOLD * hours);
+
+            // B. 計算第三方派送的額度 (Quota)
+            const quota = Math.max(0, orders - targetOrders);
+            
+            // C. 計算當前 TPLH 實際值 (Current TPLH)
+            const currentTplh = orders / hours;
+
+
+            // 3. 更新顯示
+            targetOrdersElem.textContent = targetOrders.toLocaleString(); // 顯示應達單數
+            currentTplhElem.textContent = currentTplh.toFixed(2); // 顯示當前 TPLH 實際值
+
+            updateQuotaDisplay(quota, quotaBox, quotaTitle, quotaValue, quotaMessage, orders, hours, targetOrders);
+            
+            // 顯示結果區塊
+            resultContainer.classList.remove('hidden');
+        }
+
+        /**
+         * 根據計算出的額度值更新 UI 元素，並應用日系極簡樣式。
+         */
+        function updateQuotaDisplay(quota, box, titleElem, valueElem, msgElem, orders, hours, targetOrders) {
+            
+            // 重置狀態框的類別
+            box.classList.remove('result-box-surplus', 'result-box-deficit');
+
+            if (quota > 0) {
+                // 額度充足
+                box.classList.add('result-box-surplus');
+                
+                // 簡化為：可派第三方
+                titleElem.textContent = `✅ 可派第三方`;
+                titleElem.classList.remove('text-amber-700', 'text-gray-700'); 
+
+                valueElem.textContent = `${quota} 單`;
+                valueElem.classList.add('text-green-700');
+                valueElem.classList.remove('text-amber-700', 'text-gray-700'); 
+                
+                // 簡化說明
+                msgElem.innerHTML = `可派額度 ${quota} 單。`;
+                
+            } else {
+                // 額度不足 (或剛好達到 0)
+                box.classList.add('result-box-deficit');
+                
+                // 簡化為：不可派第三方
+                titleElem.textContent = '⚠️ 不可派第三方';
+                titleElem.classList.add('text-amber-700');
+                titleElem.classList.remove('text-green-700', 'text-gray-700'); 
+
+                if (orders < targetOrders) {
+                    const deficit = targetOrders - orders;
+                    valueElem.textContent = `尚缺 ${deficit} 單`;
+                    // 簡化說明
+                    msgElem.innerHTML = `尚需累積 ${deficit} 單。`;
+                } else {
+                    valueElem.textContent = `0 單`;
+                    // 簡化說明
+                    msgElem.innerHTML = `剛達門檻，請密切注意下一單。`;
+                }
+
+                valueElem.classList.add('text-amber-700');
+                valueElem.classList.remove('text-green-700', 'text-gray-700'); 
+            }
+        }
+
+        // 頁面加載完成後立即執行一次計算，顯示預設值
+        window.onload = () => {
+            calculateQuota();
+        };
+
+        // 為輸入框添加 'Enter' 鍵觸發計算的功能
+        document.getElementById('totalOrders').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                calculateQuota();
+            }
+        });
+        document.getElementById('totalHours').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                calculateQuota();
+            }
+        });
+    </script>
+</body>
+</html>
+
